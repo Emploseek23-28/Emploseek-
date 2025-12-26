@@ -1,13 +1,29 @@
-# Emploseek - International Job Platform
+# Emploseek 🌍
 
-Professional website for searching for international jobs, internships, and language study abroad programs.
+**International Job, Internship & Language Stay Platform**
+
+### 📍 Based in East London, South Africa
+### 📧 Contact: emploseek@gmail.com
+
+---
 
 ## Features
-- B2P registration form
-- Contract reference verification
-- Secure Admin Panel
-- MongoDB database
+✅ Professional B2B landing page  
+✅ Client registration form  
+✅ Contract reference verification  
+✅ Secure admin panel  
+✅ MongoDB database  
+✅ PDF contract storage  
+✅ Mobile responsive design  
 
-## Contact
-📧 emploseek@gmail.com  
-📍 East London, South Africa
+---
+
+## Quick Links
+- **Live Site:** https://emploseek.vercel.app
+- **Reference Check:** https://emploseek.vercel.app/check
+- **Admin Panel:** https://emploseek.vercel.app/admin (password: admin123)
+
+---
+
+## Stats
++90 countries | +25M contracts/week | +10M internships validated | 24h response time
