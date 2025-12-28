@@ -1,83 +1,46 @@
-import { connectToDatabase } from '@/lib/mongodb'
+import { MongoClient } from 'mongodb'
+
+const uri = process.env.MONGODB_URI
 
 export async function GET() {
   try {
-    const { db } = await connectToDatabase()
-    const users = await db.collection('users')
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray()
+    const client = new MongoClient(uri)
+    await client.connect()
+    const db = client.db('emploseek')
     
-    return new Response(JSON.stringify(users), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    const users = await db.collection('users').find({}).toArray()
+    
+    await client.close()
+    
+    return Response.json(users, { status: 200 })
   } catch (error) {
-    console.error('Error fetching users:', error)
-    return new Response(JSON.stringify({ error: 'Failed to fetch users' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    })
+    console.error('Error:', error)
+    return Response.json({ error: 'Database error' }, { status: 500 })
   }
 }
 
 export async function POST(request) {
   try {
     const data = await request.json()
-    const { db } = await connectToDatabase()
+    const client = new MongoClient(uri)
+    await client.connect()
+    const db = client.db('emploseek')
     
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = await db.collection('users').findOne({
-      email: data.email
-    })
-    
-    if (existingUser) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'User already exists with this email',
-          userId: existingUser._id 
-        }), 
-        { 
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    
-    // Créer un nouvel utilisateur
-    const user = {
+    // Insert user
+    const result = await db.collection('users').insertOne({
       ...data,
       createdAt: new Date(),
-      updatedAt: new Date(),
-      status: 'active',
-      registrationSource: 'website'
-    }
+      updatedAt: new Date()
+    })
     
-    const result = await db.collection('users').insertOne(user)
+    await client.close()
     
-    // Envoyer un email de confirmation (simulé pour l'exemple)
-    console.log(`New user registered: ${data.email}`)
-    
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'User registered successfully',
-        userId: result.insertedId 
-      }), 
-      { 
-        status: 201,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
-    
+    return Response.json({
+      success: true,
+      userId: result.insertedId
+    }, { status: 201 })
   } catch (error) {
-    console.error('Error creating user:', error)
-    return new Response(
-      JSON.stringify({ error: 'Failed to register user' }), 
-      { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    console.error('Error:', error)
+    return Response.json({ error: 'Failed to create user' }, { status: 500 })
   }
 }
