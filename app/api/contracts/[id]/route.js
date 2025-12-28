@@ -1,48 +1,41 @@
-import { connectToDatabase } from '../../../../lib/mongodb'
-import { ObjectId } from 'mongodb'
+import { connectToDatabase } from '@/lib/mongodb'
 
-export async function DELETE(request, { params }) {
+export async function GET() {
   try {
-    const { id } = params
     const { db } = await connectToDatabase()
     
-    // Supprimer le contrat
-    const result = await db.collection('contracts').deleteOne({
-      _id: new ObjectId(id)
-    })
+    // Créer les collections si elles n'existent pas (AUTO-CRÉATION)
+    const collections = await db.listCollections().toArray()
+    const collectionNames = collections.map(c => c.name)
     
-    if (result.deletedCount === 1) {
-      return Response.json({ 
-        success: true, 
-        message: 'Contract deleted successfully' 
-      }, { status: 200 })
-    } else {
-      return Response.json({ error: 'Contract not found' }, { status: 404 })
+    if (!collectionNames.includes('users')) {
+      await db.createCollection('users')
+      await db.collection('users').createIndex({ email: 1 }, { unique: true })
+      console.log('Collection users créée')
     }
     
-  } catch (error) {
-    console.error('Error deleting contract:', error)
-    return Response.json({ error: 'Failed to delete contract' }, { status: 500 })
-  }
-}
-
-export async function GET(request, { params }) {
-  try {
-    const { id } = params
-    const { db } = await connectToDatabase()
-    
-    const contract = await db.collection('contracts').findOne({
-      _id: new ObjectId(id)
-    })
-    
-    if (!contract) {
-      return Response.json({ error: 'Contract not found' }, { status: 404 })
+    if (!collectionNames.includes('contracts')) {
+      await db.createCollection('contracts')
+      await db.collection('contracts').createIndex({ reference: 1 }, { unique: true })
+      await db.collection('contracts').createIndex({ clientId: 1 })
+      console.log('Collection contracts créée')
     }
     
-    return Response.json(contract, { status: 200 })
+    if (!collectionNames.includes('verifications')) {
+      await db.createCollection('verifications')
+      console.log('Collection verifications créée')
+    }
+    
+    // Maintenant, récupérer les contrats
+    const contracts = await db.collection('contracts')
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray()
+    
+    return Response.json(contracts, { status: 200 })
     
   } catch (error) {
-    console.error('Error fetching contract:', error)
-    return Response.json({ error: 'Failed to fetch contract' }, { status: 500 })
+    console.error('Error:', error)
+    return Response.json({ error: 'Database error' }, { status: 500 })
   }
 }
