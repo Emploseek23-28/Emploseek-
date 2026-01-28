@@ -1,84 +1,48 @@
-import { connectToDatabase } from '@/lib/mongodb'
+import { query } from '@/lib/neon-db';
 
 export async function GET(request, { params }) {
   try {
-    const { reference } = params
-    const { db } = await connectToDatabase()
+    const { reference } = params;
     
-    // Rechercher le contrat
-    const contract = await db.collection('contracts').findOne({
-      reference: reference.toUpperCase()
-    })
+    // Test simple de connexion d'abord
+    const testResult = await query('SELECT NOW() as time');
+    console.log('Database time:', testResult.rows[0].time);
     
-    if (!contract) {
-      return Response.json({
-        valid: false,
-        error: 'Reference not found'
-      }, { status: 200 })
+    // Chercher l'offre
+    const result = await query(
+      'SELECT * FROM jobs WHERE reference = $1',
+      [reference]
+    );
+    
+    if (result.rows.length === 0) {
+      return Response.json(
+        { 
+          status: 'error',
+          message: 'Référence introuvable',
+          reference: reference
+        },
+        { status: 404 }
+      );
     }
     
-    // Récupérer les infos client
-    const client = await db.collection('users').findOne({
-      _id: contract.clientId
-    })
+    const job = result.rows[0];
     
-    if (!client) {
-      return Response.json({
-        valid: false,
-        error: 'Client information not found'
-      }, { status: 200 })
-    }
-    
-    // Vérifier si le contrat est expiré
-    const isExpired = new Date(contract.endDate) < new Date()
-    
-    // Enregistrer la vérification
-    await db.collection('verifications').insertOne({
-      reference: reference,
-      checkedAt: new Date(),
-      result: isExpired ? 'expired' : 'valid',
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-    })
-    
-    if (isExpired) {
-      return Response.json({
-        valid: false,
-        error: 'Contract has expired',
-        reference: contract.reference
-      }, { status: 200 })
-    }
-    
-    // Retourner les données
     return Response.json({
-      valid: true,
-      reference: contract.reference,
-      client: {
-        firstName: client.firstName,
-        lastName: client.lastName,
-        email: client.email,
-        phone: client.phone,
-        birthDate: client.birthDate,
-        nationality: client.nationality,
-        passportNumber: client.passportNumber
-      },
-      contract: {
-        type: contract.type,
-        company: contract.company,
-        country: contract.country,
-        position: contract.position,
-        salary: contract.salary,
-        startDate: contract.startDate,
-        endDate: contract.endDate,
-        pdfUrl: contract.pdfUrl,
-        status: contract.status
-      }
-    }, { status: 200 })
+      status: 'success',
+      data: job,
+      tested_at: new Date().toISOString()
+    });
     
   } catch (error) {
-    console.error('Error:', error)
-    return Response.json({ 
-      valid: false,
-      error: 'Server error' 
-    }, { status: 500 })
+    console.error('API Error:', error);
+    
+    return Response.json(
+      { 
+        status: 'error',
+        message: 'Erreur serveur',
+        error: error.message
+      },
+      { status: 500 }
+    );
   }
 }
