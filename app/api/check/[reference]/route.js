@@ -1,117 +1,60 @@
-import { connectToDatabase } from '@/lib/mongodb'
-import { ObjectId } from 'mongodb'
+import { query } from '@/lib/neon-db';
 
 export async function GET(request, { params }) {
   try {
-    const { reference } = params
-    const { db } = await connectToDatabase()
+    console.log('=== API CALL START ===');
+    console.log('Reference:', params.reference);
+    console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
     
-    // Rechercher le contrat par référence
-    const contract = await db.collection('contracts')
-      .aggregate([
-        {
-          $match: { reference: reference.toUpperCase() }
-        },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'clientId',
-            foreignField: '_id',
-            as: 'clientInfo'
-          }
-        },
-        {
-          $unwind: '$clientInfo'
-        }
-      ])
-      .next()
+    const { reference } = params;
     
-    if (!contract) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Contract not found',
-          valid: false 
-        }), 
+    // Test simple d'abord
+    const testQuery = await query('SELECT NOW() as current_time');
+    console.log('Database time:', testQuery.rows[0].current_time);
+    
+    // Chercher l'offre
+    const result = await query(
+      'SELECT * FROM jobs WHERE reference = $1',
+      [reference]
+    );
+    
+    console.log('Found rows:', result.rows.length);
+    
+    if (result.rows.length === 0) {
+      console.log('Reference not found');
+      return Response.json(
         { 
-          status: 404,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+          status: 'error',
+          message: 'Référence introuvable',
+          reference: reference
+        },
+        { status: 404 }
+      );
     }
     
-    // Vérifier si le contrat est expiré
-    const isExpired = new Date(contract.endDate) < new Date()
+    const job = result.rows[0];
+    console.log('Job found:', job);
     
-    if (isExpired) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Contract has expired',
-          valid: false,
-          reference: contract.reference
-        }), 
-        { 
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    
-    // Retourner les informations du contrat et du client
-    const response = {
-      valid: true,
-      reference: contract.reference,
-      client: {
-        firstName: contract.clientInfo.firstName,
-        lastName: contract.clientInfo.lastName,
-        email: contract.clientInfo.email,
-        phone: contract.clientInfo.phone,
-        birthDate: contract.clientInfo.birthDate,
-        nationality: contract.clientInfo.nationality,
-        passportNumber: contract.clientInfo.passportNumber
-      },
-      contract: {
-        type: contract.type,
-        company: contract.company,
-        country: contract.country,
-        position: contract.position,
-        salary: contract.salary,
-        startDate: contract.startDate,
-        endDate: contract.endDate,
-        description: contract.description,
-        pdfUrl: contract.pdfUrl,
-        status: contract.status,
-        verifiedAt: new Date().toISOString()
-      }
-    }
-    
-    // Enregistrer la vérification dans l'historique
-    await db.collection('verifications').insertOne({
-      reference: contract.reference,
-      checkedAt: new Date(),
-      ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-      userAgent: request.headers.get('user-agent'),
-      result: 'valid'
-    })
-    
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-store, max-age=0'
-      }
-    })
+    return Response.json({
+      status: 'success',
+      data: job,
+      tested_at: new Date().toISOString()
+    });
     
   } catch (error) {
-    console.error('Error checking reference:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'Failed to check reference',
-        valid: false 
-      }), 
+    console.error('=== API ERROR ===');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    return Response.json(
       { 
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+        status: 'error',
+        message: 'Erreur serveur',
+        error: error.message,
+        code: error.code
+      },
+      { status: 500 }
+    );
   }
 }
