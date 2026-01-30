@@ -16,39 +16,55 @@ export default function CheckerPage() {
       const data = await response.json();
       setResult(data);
     } catch (error) {
-      setResult({ status: 'error', message: 'Erreur de connexion' });
+      setResult({ 
+        status: 'error', 
+        message: 'Erreur de connexion au serveur' 
+      });
     }
     setLoading(false);
   };
 
   return (
-    <div style={{ padding: '40px', maxWidth: '600px', margin: '0 auto' }}>
-      <h1>✅ Vérificateur d'offres d'emploi</h1>
-      <p>Entrez le code de référence reçu par email</p>
+    <div style={{ 
+      padding: '40px', 
+      maxWidth: '600px', 
+      margin: '0 auto',
+      fontFamily: 'Arial, sans-serif' 
+    }}>
+      <h1 style={{ color: '#0070f3' }}>🔍 Vérificateur d'offres Emploseek</h1>
+      <p>Vérifiez la validité d'une offre d'emploi avec son code de référence</p>
       
-      <form onSubmit={checkReference}>
-        <input
-          type="text"
-          placeholder="Ex: DEV001"
-          value={reference}
-          onChange={(e) => setReference(e.target.value.toUpperCase())}
-          style={{ padding: '12px', width: '200px', fontSize: '16px', marginRight: '10px' }}
-        />
-        <button 
-          type="submit"
-          disabled={loading}
-          style={{ 
-            padding: '12px 24px', 
-            background: '#0070f3', 
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px',
-            fontSize: '16px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Vérification...' : 'Vérifier'}
-        </button>
+      <form onSubmit={checkReference} style={{ margin: '30px 0' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <input
+            type="text"
+            placeholder="Ex: DEV001, MKT001, etc."
+            value={reference}
+            onChange={(e) => setReference(e.target.value.toUpperCase())}
+            style={{ 
+              padding: '12px',
+              flex: 1,
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              fontSize: '16px'
+            }}
+          />
+          <button 
+            type="submit"
+            disabled={loading}
+            style={{ 
+              padding: '12px 24px', 
+              background: '#0070f3', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              fontSize: '16px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Vérification...' : 'Vérifier'}
+          </button>
+        </div>
       </form>
 
       {result && (
@@ -61,14 +77,15 @@ export default function CheckerPage() {
         }}>
           {result.status === 'success' ? (
             <>
-              <h2 style={{ color: '#00cc00' }}>✅ OFFRE VALIDE</h2>
-              <div style={{ marginTop: '20px' }}>
+              <h2 style={{ color: '#00cc00', marginTop: 0 }}>✅ OFFRE VALIDE</h2>
+              <div style={{ marginTop: '15px' }}>
                 <p><strong>Référence :</strong> {result.data.reference}</p>
                 <p><strong>Titre du poste :</strong> {result.data.title}</p>
                 <p><strong>Entreprise :</strong> {result.data.company}</p>
                 <p><strong>Lieu :</strong> {result.data.location}</p>
                 <p><strong>Salaire :</strong> {result.data.salary}</p>
-                <p><strong>Statut :</strong> 
+                <p>
+                  <strong>Statut :</strong> 
                   <span style={{ 
                     color: result.data.status === 'published' ? 'green' : 'orange',
                     fontWeight: 'bold',
@@ -81,13 +98,39 @@ export default function CheckerPage() {
             </>
           ) : (
             <>
-              <h2 style={{ color: '#ff3333' }}>❌ RÉFÉRENCE INVALIDE</h2>
-              <p>La référence <strong>{result.reference}</strong> n'a pas été trouvée.</p>
-              <p>Vérifiez le code et réessayez.</p>
+              <h2 style={{ color: '#ff3333', marginTop: 0 }}>❌ RÉFÉRENCE INVALIDE</h2>
+              <p>La référence <strong>{result.reference || reference}</strong> n'a pas été trouvée.</p>
+              <p>Veuillez vérifier le code et réessayer.</p>
             </>
           )}
         </div>
       )}
+
+      <div style={{ marginTop: '40px', padding: '20px', background: '#f5f5f5', borderRadius: '8px' }}>
+        <h3>Exemples de références à tester :</h3>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          <li style={{ margin: '10px 0' }}>
+            <a href="/api/check/DEV001" style={{ color: '#0070f3', textDecoration: 'none' }}>
+              🔗 DEV001 - Développeur FullStack (publiée)
+            </a>
+          </li>
+          <li style={{ margin: '10px 0' }}>
+            <a href="/api/check/DEV002" style={{ color: '#0070f3', textDecoration: 'none' }}>
+              🔗 DEV002 - Développeur Frontend (en attente)
+            </a>
+          </li>
+          <li style={{ margin: '10px 0' }}>
+            <a href="/api/check/MKT001" style={{ color: '#0070f3', textDecoration: 'none' }}>
+              🔗 MKT001 - Marketing Manager (publiée)
+            </a>
+          </li>
+          <li style={{ margin: '10px 0' }}>
+            <a href="/api/check/ABC123" style={{ color: '#0070f3', textDecoration: 'none' }}>
+              🔗 ABC123 - Référence inexistante (test d'erreur)
+            </a>
+          </li>
+        </ul>
+      </div>
     </div>
   );
 }
