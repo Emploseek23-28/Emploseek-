@@ -4,44 +4,67 @@ export async function GET(request, { params }) {
   try {
     const { reference } = params;
     
-    console.log('Recherche référence:', reference); // Pour debug
+    console.log(`🔍 API Check appelée pour: ${reference} à ${new Date().toISOString()}`);
     
-    // 1. Chercher dans la table 'jobs' (pas 'job_offers')
     const result = await query(
-      'SELECT * FROM jobs WHERE reference = $1',
+      'SELECT id, reference, title, company, location, salary, status, created_at FROM jobs WHERE reference = $1',
       [reference]
     );
     
-    // 2. Vérifier le résultat
-    console.log('Résultat:', result.rows); // Pour debug
-    
     if (result.rows.length === 0) {
+      console.log(`❌ Référence non trouvée: ${reference}`);
       return Response.json(
         { 
-          status: 'error',
+          status: 'error', 
           message: 'Référence non trouvée',
-          reference: reference
+          reference: reference 
         },
-        { status: 404 }
+        { 
+          status: 404,
+          // HEADERS ANTI-CACHE
+          headers: {
+            'Cache-Control': 'no-store, max-age=0, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+            'X-Content-Type-Options': 'nosniff'
+          }
+        }
       );
     }
     
-    // 3. Retourner les données
+    const job = result.rows[0];
+    console.log(`✅ Référence trouvée: ${reference}, Statut: ${job.status}`);
+    
+    // RÉPONSE AVEC HEADERS ANTI-CACHE
     return Response.json({
       status: 'success',
-      data: result.rows[0],
-      source: 'database'
+      data: job,
+      timestamp: new Date().toISOString(),
+      cache: 'disabled'
+    }, {
+      // HEADERS CRITIQUES POUR ÉVITER LE CACHE
+      headers: {
+        'Cache-Control': 'no-store, max-age=0, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'X-Content-Type-Options': 'nosniff',
+        'Vary': '*',
+        'Last-Modified': new Date().toUTCString()
+      }
     });
     
   } catch (error) {
-    console.error('Erreur API:', error);
+    console.error('❌ Erreur API Check:', error);
     return Response.json(
       { 
-        status: 'error',
+        status: 'error', 
         message: 'Erreur serveur',
-        details: error.message
+        details: error.message 
       },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: { 'Cache-Control': 'no-store' }
+      }
     );
   }
 }
