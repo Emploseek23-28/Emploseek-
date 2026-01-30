@@ -8,11 +8,11 @@ export async function PUT(request, { params }) {
     
     const { reference, title, company, location, salary, status } = data;
     
+    // Version SANS updated_at dans le UPDATE (si colonne n'existe pas)
     const result = await query(
       `UPDATE jobs 
        SET reference = $1, title = $2, company = $3, 
-           location = $4, salary = $5, status = $6,
-           updated_at = NOW()
+           location = $4, salary = $5, status = $6
        WHERE id = $7 
        RETURNING *`,
       [reference, title, company, location, salary, status, id]
