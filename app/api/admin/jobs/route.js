@@ -1,16 +1,19 @@
 import { query } from '@/lib/neon-db';
 
-// GET: Récupérer TOUTES les offres (pour l'admin)
-export async function GET(request) {
+// GET: Récupérer toutes les offres
+export async function GET() {
   try {
-    // ICI: Ajouter une vérification d'authentification admin plus tard
+    console.log('Admin API: Fetching all jobs');
     
+    // Version SANS updated_at
     const result = await query(`
       SELECT id, reference, title, company, location, salary, status, 
-             created_at, updated_at 
+             created_at 
       FROM jobs 
       ORDER BY created_at DESC
     `);
+    
+    console.log(`Found ${result.rows.length} jobs`);
     
     return Response.json({
       status: 'success',
@@ -21,7 +24,10 @@ export async function GET(request) {
   } catch (error) {
     console.error('Admin API Error:', error);
     return Response.json(
-      { status: 'error', message: error.message },
+      { 
+        status: 'error', 
+        message: error.message
+      },
       { status: 500 }
     );
   }
@@ -31,10 +37,11 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const data = await request.json();
+    console.log('Admin API: Creating job:', data);
     
     const { reference, title, company, location, salary, status } = data;
     
-    // Validation basique
+    // Validation
     if (!reference || !title) {
       return Response.json(
         { status: 'error', message: 'Reference et titre requis' },
@@ -42,12 +49,15 @@ export async function POST(request) {
       );
     }
     
+    // Version SANS updated_at dans l'INSERT
     const result = await query(
       `INSERT INTO jobs (reference, title, company, location, salary, status) 
        VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING id, reference, title`,
+       RETURNING id, reference, title, company, location, salary, status, created_at`,
       [reference, title, company, location, salary, status || 'active']
     );
+    
+    console.log('Job created:', result.rows[0]);
     
     return Response.json({
       status: 'success',
@@ -56,8 +66,9 @@ export async function POST(request) {
     }, { status: 201 });
     
   } catch (error) {
-    // Gérer les doublons de référence
-    if (error.code === '23505') { // Code d'erreur PostgreSQL pour unique violation
+    console.error('Create job error:', error);
+    
+    if (error.code === '23505') { // Doublon référence
       return Response.json(
         { status: 'error', message: 'Cette référence existe déjà' },
         { status: 409 }
