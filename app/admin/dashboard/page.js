@@ -8,6 +8,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState('');
   
   // Nouvelle offre
   const [newJob, setNewJob] = useState({
@@ -37,6 +38,7 @@ export default function AdminDashboard() {
       const data = await response.json();
       if (data.status === 'success') {
         setJobs(data.data);
+        setLastUpdated(new Date().toLocaleTimeString('fr-FR'));
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -91,7 +93,6 @@ export default function AdminDashboard() {
   // MODIFIER le statut d'une offre
   const handleUpdateStatus = async (id, newStatus) => {
     try {
-      // Récupérer l'offre actuelle
       const currentJob = jobs.find(job => job.id === id);
       if (!currentJob) return;
       
@@ -168,22 +169,48 @@ export default function AdminDashboard() {
           <h1 style={{ margin: 0, color: '#4f46e5' }}>🏢 Dashboard Admin</h1>
           <p style={{ margin: '5px 0 0 0', color: '#666' }}>
             Connecté en tant que: <strong>Roqma</strong>
+            {lastUpdated && (
+              <span style={{ marginLeft: '20px', fontSize: '14px', color: '#10b981' }}>
+                • Dernière actualisation: {lastUpdated}
+              </span>
+            )}
           </p>
         </div>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '10px 20px',
-            background: '#ef4444',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-        >
-          🚪 Déconnexion
-        </button>
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={fetchJobs}
+            style={{
+              padding: '10px 20px',
+              background: '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            🔄 Actualiser
+          </button>
+          
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '10px 20px',
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            🚪 Déconnexion
+          </button>
+        </div>
       </header>
 
       <div style={{ padding: '30px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -195,8 +222,8 @@ export default function AdminDashboard() {
           marginBottom: '30px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
         }}>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '300px' }}>
               <input
                 type="text"
                 placeholder="🔍 Rechercher par référence, titre ou entreprise..."
@@ -213,6 +240,26 @@ export default function AdminDashboard() {
             </div>
             
             <button
+              onClick={fetchJobs}
+              style={{
+                padding: '12px 20px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              🔄 Actualiser
+            </button>
+            
+            <button
               onClick={() => setShowCreateForm(!showCreateForm)}
               style={{
                 padding: '12px 25px',
@@ -225,7 +272,8 @@ export default function AdminDashboard() {
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px'
+                gap: '8px',
+                whiteSpace: 'nowrap'
               }}
             >
               {showCreateForm ? '✕ Annuler' : '➕ Nouvelle offre'}
@@ -233,7 +281,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Statistiques */}
-          <div style={{ display: 'flex', gap: '30px' }}>
+          <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#4f46e5' }}>
                 {jobs.length}
@@ -251,6 +299,12 @@ export default function AdminDashboard() {
                 {jobs.filter(j => j.status === 'published').length}
               </div>
               <div style={{ color: '#64748b', fontSize: '14px' }}>Publiées</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                {jobs.filter(j => j.status === 'pending').length}
+              </div>
+              <div style={{ color: '#64748b', fontSize: '14px' }}>En attente</div>
             </div>
           </div>
         </div>
@@ -426,152 +480,229 @@ export default function AdminDashboard() {
           overflow: 'hidden',
           boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
         }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc' }}>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Référence</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Titre / Client</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Entreprise</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Localisation</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Salaire</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Statut</th>
-                <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredJobs.map(job => (
-                <tr key={job.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }}>
-                      {job.reference}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                      ID: {job.id}
-                    </div>
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    <div style={{ fontWeight: '500' }}>{job.title}</div>
-                    {job.description && (
-                      <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
-                        {job.description.substring(0, 60)}...
-                      </div>
-                    )}
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    {job.company || '-'}
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    {job.location || '-'}
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    {job.salary || '-'}
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    <select
-                      value={job.status}
-                      onChange={(e) => handleUpdateStatus(job.id, e.target.value)}
-                      style={{
-                        padding: '6px 12px',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        background: 
-                          job.status === 'active' ? '#f0fdf4' :
-                          job.status === 'published' ? '#eff6ff' :
-                          job.status === 'pending' ? '#fffbeb' : '#f1f5f9',
-                        color: 
-                          job.status === 'active' ? '#166534' :
-                          job.status === 'published' ? '#1e40af' :
-                          job.status === 'pending' ? '#92400e' : '#475569',
-                        fontWeight: '500',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <option value="active">Active</option>
-                      <option value="published">Publiée</option>
-                      <option value="pending">En attente</option>
-                      <option value="closed">Terminée</option>
-                    </select>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                      {new Date(job.created_at).toLocaleDateString('fr-FR')}
-                    </div>
-                  </td>
-                  
-                  <td style={{ padding: '18px', verticalAlign: 'top' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <button
-                        onClick={() => handleUpdateStatus(job.id, 
-                          job.status === 'published' ? 'active' : 'published'
-                        )}
-                        style={{
-                          padding: '8px 12px',
-                          background: job.status === 'published' ? '#f1f5f9' : '#3b82f6',
-                          color: job.status === 'published' ? '#475569' : 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          textAlign: 'left'
-                        }}
-                      >
-                        {job.status === 'published' ? '👁️ Masquer' : '👁️ Publier'}
-                      </button>
-                      
-                      <a
-                        href={`/api/check/${job.reference}`}
-                        target="_blank"
-                        style={{
-                          padding: '8px 12px',
-                          background: '#10b981',
-                          color: 'white',
-                          textDecoration: 'none',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          textAlign: 'center',
-                          display: 'block'
-                        }}
-                      >
-                        🌐 Voir publique
-                      </a>
-                      
-                      <button
-                        onClick={() => handleDeleteJob(job.id, job.reference)}
-                        style={{
-                          padding: '8px 12px',
-                          background: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          textAlign: 'left'
-                        }}
-                      >
-                        🗑️ Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ 
+            padding: '20px', 
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>
+              <h3 style={{ margin: 0, color: '#475569' }}>Liste des offres</h3>
+              <p style={{ margin: '5px 0 0 0', color: '#64748b', fontSize: '14px' }}>
+                {filteredJobs.length} offre(s) trouvée(s) • Total: {jobs.length}
+              </p>
+            </div>
+            <button
+              onClick={fetchJobs}
+              style={{
+                padding: '8px 16px',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '14px'
+              }}
+            >
+              🔁 Actualiser
+            </button>
+          </div>
           
-          {filteredJobs.length === 0 && (
+          {filteredJobs.length === 0 ? (
             <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
               <div style={{ fontSize: '48px', marginBottom: '20px' }}>📭</div>
               <h3 style={{ margin: '0 0 10px 0', color: '#475569' }}>
                 {jobs.length === 0 ? 'Aucune offre créée' : 'Aucun résultat'}
               </h3>
-              <p style={{ margin: 0 }}>
+              <p style={{ margin: 0, marginBottom: '20px' }}>
                 {jobs.length === 0 
                   ? 'Commencez par créer votre première offre' 
                   : 'Essayez une autre recherche'}
               </p>
+              {jobs.length === 0 && (
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Créer une première offre
+                </button>
+              )}
             </div>
+          ) : (
+            <>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Référence</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Titre / Client</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Entreprise</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Localisation</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Salaire</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Statut</th>
+                    <th style={{ padding: '18px', textAlign: 'left', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredJobs.map(job => (
+                    <tr key={job.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#1e293b' }}>
+                          {job.reference}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                          ID: {job.id}
+                        </div>
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        <div style={{ fontWeight: '500' }}>{job.title}</div>
+                        {job.description && (
+                          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                            {job.description.substring(0, 60)}...
+                          </div>
+                        )}
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        {job.company || '-'}
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        {job.location || '-'}
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        {job.salary || '-'}
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        <select
+                          value={job.status}
+                          onChange={(e) => handleUpdateStatus(job.id, e.target.value)}
+                          style={{
+                            padding: '6px 12px',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '6px',
+                            background: 
+                              job.status === 'active' ? '#f0fdf4' :
+                              job.status === 'published' ? '#eff6ff' :
+                              job.status === 'pending' ? '#fffbeb' : '#f1f5f9',
+                            color: 
+                              job.status === 'active' ? '#166534' :
+                              job.status === 'published' ? '#1e40af' :
+                              job.status === 'pending' ? '#92400e' : '#475569',
+                            fontWeight: '500',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="active">Active</option>
+                          <option value="published">Publiée</option>
+                          <option value="pending">En attente</option>
+                          <option value="closed">Terminée</option>
+                        </select>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                          {new Date(job.created_at).toLocaleDateString('fr-FR')}
+                        </div>
+                      </td>
+                      
+                      <td style={{ padding: '18px', verticalAlign: 'top' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <button
+                            onClick={() => handleUpdateStatus(job.id, 
+                              job.status === 'published' ? 'active' : 'published'
+                            )}
+                            style={{
+                              padding: '8px 12px',
+                              background: job.status === 'published' ? '#f1f5f9' : '#3b82f6',
+                              color: job.status === 'published' ? '#475569' : 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            {job.status === 'published' ? '👁️ Masquer' : '👁️ Publier'}
+                          </button>
+                          
+                          <a
+                            href={`/api/check/${job.reference}`}
+                            target="_blank"
+                            style={{
+                              padding: '8px 12px',
+                              background: '#10b981',
+                              color: 'white',
+                              textDecoration: 'none',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              textAlign: 'center',
+                              display: 'block'
+                            }}
+                          >
+                            🌐 Voir publique
+                          </a>
+                          
+                          <button
+                            onClick={() => handleDeleteJob(job.id, job.reference)}
+                            style={{
+                              padding: '8px 12px',
+                              background: '#ef4444',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '13px',
+                              cursor: 'pointer',
+                              textAlign: 'left'
+                            }}
+                          >
+                            🗑️ Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              <div style={{ 
+                padding: '20px', 
+                borderTop: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: '#f8fafc'
+              }}>
+                <div style={{ color: '#64748b', fontSize: '14px' }}>
+                  {filteredJobs.length} offre(s) affichée(s)
+                </div>
+                <button
+                  onClick={fetchJobs}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#e2e8f0',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  🔄 Recharger
+                </button>
+              </div>
+            </>
           )}
         </div>
         
@@ -585,12 +716,33 @@ export default function AdminDashboard() {
         }}>
           <p>© 2024 Emploseek Admin - {jobs.length} offre(s) en base de données</p>
           <p style={{ marginTop: '10px' }}>
+            <button
+              onClick={fetchJobs}
+              style={{
+                padding: '8px 16px',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+            >
+              🔁 Recharger les données
+            </button>
             <a 
               href="/checker" 
               target="_blank"
+              style={{ color: '#4f46e5', textDecoration: 'none', marginRight: '10px' }}
+            >
+              👉 Vérificateur public
+            </a>
+            <a 
+              href="/api/admin/jobs" 
+              target="_blank"
               style={{ color: '#4f46e5', textDecoration: 'none' }}
             >
-              👉 Voir le vérificateur public
+              📊 API Raw Data
             </a>
           </p>
         </div>
