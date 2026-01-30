@@ -1,52 +1,47 @@
+import { query } from '@/lib/neon-db';
+
 export async function GET(request, { params }) {
-  const { reference } = params;
-  
-  // Données mockées pour tester - SIMPLE
-  const mockJobs = {
-    'DEV001': {
-      id: 1,
-      reference: 'DEV001',
-      title: 'Développeur FullStack',
-      company: 'TechCorp',
-      location: 'Paris',
-      salary: '45-55k€',
-      status: 'published'
-    },
-    'DEV002': {
-      id: 2,
-      reference: 'DEV002',
-      title: 'Développeur Frontend',
-      company: 'StartupXYZ',
-      location: 'Remote',
-      salary: '50-60k€',
-      status: 'pending'
-    },
-    'MKT001': {
-      id: 3,
-      reference: 'MKT001',
-      title: 'Marketing Manager',
-      company: 'MarketingPro',
-      location: 'Lyon',
-      salary: '40-50k€',
-      status: 'published'
+  try {
+    const { reference } = params;
+    
+    console.log('Recherche référence:', reference); // Pour debug
+    
+    // 1. Chercher dans la table 'jobs' (pas 'job_offers')
+    const result = await query(
+      'SELECT * FROM jobs WHERE reference = $1',
+      [reference]
+    );
+    
+    // 2. Vérifier le résultat
+    console.log('Résultat:', result.rows); // Pour debug
+    
+    if (result.rows.length === 0) {
+      return Response.json(
+        { 
+          status: 'error',
+          message: 'Référence non trouvée',
+          reference: reference
+        },
+        { status: 404 }
+      );
     }
-  };
-  
-  const job = mockJobs[reference];
-  
-  if (!job) {
+    
+    // 3. Retourner les données
+    return Response.json({
+      status: 'success',
+      data: result.rows[0],
+      source: 'database'
+    });
+    
+  } catch (error) {
+    console.error('Erreur API:', error);
     return Response.json(
-      {
+      { 
         status: 'error',
-        message: 'Référence non trouvée',
-        reference: reference
+        message: 'Erreur serveur',
+        details: error.message
       },
-      { status: 404 }
+      { status: 500 }
     );
   }
-  
-  return Response.json({
-    status: 'success',
-    data: job
-  });
 }
