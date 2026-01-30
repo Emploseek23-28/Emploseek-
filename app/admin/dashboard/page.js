@@ -8,7 +8,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingJob, setEditingJob] = useState(null);
   
   // Nouvelle offre
   const [newJob, setNewJob] = useState({
@@ -486,7 +485,7 @@ export default function AdminDashboard() {
                           job.status === 'pending' ? '#fffbeb' : '#f1f5f9',
                         color: 
                           job.status === 'active' ? '#166534' :
-                          job.status === 'published' : '#1e40af' :
+                          job.status === 'published' ? '#1e40af' :
                           job.status === 'pending' ? '#92400e' : '#475569',
                         fontWeight: '500',
                         cursor: 'pointer'
