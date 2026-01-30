@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // Fonction de traduction des statuts
 const translateStatus = (status) => {
@@ -10,23 +10,23 @@ const translateStatus = (status) => {
       bgColor: '#fffbeb',
       description: 'Votre demande est en cours de traitement par notre équipe.'
     },
-    'published': { 
-      text: '✅ Contrat validé et publié', 
-      color: '#10b981',
-      bgColor: '#f0fdf4',
-      description: 'Votre contrat a été approuvé et est maintenant actif.'
-    },
     'active': { 
-      text: '🟢 Contrat actif', 
+      text: '✅ Contrat validé et actif', 
       color: '#10b981',
       bgColor: '#f0fdf4',
-      description: 'Votre contrat est actuellement en cours.'
+      description: 'Votre contrat a été validé et est maintenant actif.'
+    },
+    'published': { 
+      text: '📢 Contrat publié', 
+      color: '#3b82f6',
+      bgColor: '#eff6ff',
+      description: 'Votre contrat est publié et visible publiquement.'
     },
     'closed': { 
-      text: '🔒 Offre clôturée', 
+      text: '🔒 Contrat clôturé', 
       color: '#6b7280',
       bgColor: '#f3f4f6',
-      description: 'Cette offre n\'est plus disponible.'
+      description: 'Ce contrat a été clôturé.'
     },
     'rejected': { 
       text: '❌ Contrat refusé', 
@@ -40,7 +40,7 @@ const translateStatus = (status) => {
     text: status, 
     color: '#6b7280', 
     bgColor: '#f3f4f6',
-    description: 'Statut non défini'
+    description: 'Statut en cours de vérification'
   };
 };
 
@@ -49,9 +49,14 @@ export default function CheckerPage() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forceRefresh, setForceRefresh] = useState(0);
+  
+  // Référence pour stocker le timestamp
+  const requestTimestamp = useRef(Date.now());
 
   const checkReference = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
     if (!reference.trim()) {
       setError('Veuillez entrer une référence');
       return;
@@ -62,28 +67,62 @@ export default function CheckerPage() {
     setResult(null);
     
     try {
-      const response = await fetch(`/api/check/${reference.trim().toUpperCase()}`);
+      // AJOUT D'UN TIMESTAMP UNIQUE POUR CHAQUE REQUÊTE
+      requestTimestamp.current = Date.now();
+      const uniqueParam = `_t=${requestTimestamp.current}`;
+      
+      console.log(`🔄 Requête API avec timestamp: ${requestTimestamp.current}`);
+      
+      const response = await fetch(`/api/check/${reference.trim().toUpperCase()}?${uniqueParam}`, {
+        // OPTION POUR ÉVITER LE CACHE
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
+        // FORCER LE RAFRAÎCHISSEMENT
+        cache: 'no-store'
+      });
+      
       const data = await response.json();
+      console.log('📦 Données reçues:', data);
       
       if (data.status === 'success') {
         setResult(data);
+        console.log(`✅ Statut actuel: ${data.data.status}`);
       } else {
         setError(data.message || 'Référence non trouvée');
       }
     } catch (error) {
+      console.error('❌ Erreur fetch:', error);
       setError('Erreur de connexion au serveur');
-      console.error('Erreur:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fonction pour réinitialiser
+  // Réinitialiser la recherche
   const resetSearch = () => {
     setReference('');
     setResult(null);
     setError('');
+    setForceRefresh(prev => prev + 1);
   };
+
+  // Forcer le rafraîchissement des données
+  const refreshData = () => {
+    if (reference.trim()) {
+      console.log('🔄 Forçage du rafraîchissement des données');
+      checkReference();
+    }
+  };
+
+  // Exemples de références pré-remplies
+  const exampleReferences = [
+    { ref: '28LM23', desc: 'Test - Vérifier mise à jour' },
+    { ref: 'TW238', desc: 'Agent traveler' },
+    { ref: 'DEV001', desc: 'Développeur FullStack' },
+    { ref: 'MKT001', desc: 'Marketing Manager' }
+  ];
 
   return (
     <div style={{ 
@@ -98,8 +137,7 @@ export default function CheckerPage() {
         background: 'white',
         borderRadius: '20px',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.08)',
-        overflow: 'hidden',
-        minHeight: '90vh'
+        overflow: 'hidden'
       }}>
         
         {/* Header */}
@@ -109,19 +147,11 @@ export default function CheckerPage() {
           textAlign: 'center',
           color: 'white'
         }}>
-          <h1 style={{ 
-            margin: '0 0 10px 0', 
-            fontSize: '2.5rem',
-            fontWeight: '800'
-          }}>
+          <h1 style={{ margin: '0 0 10px 0', fontSize: '2.5rem', fontWeight: '800' }}>
             🔍 Vérificateur Emploseek
           </h1>
-          <p style={{ 
-            margin: '0', 
-            fontSize: '1.1rem',
-            opacity: '0.9'
-          }}>
-            Vérifiez en temps réel le statut de votre contrat
+          <p style={{ margin: '0', fontSize: '1.1rem', opacity: '0.9' }}>
+            Données en temps réel • Mise à jour instantanée
           </p>
         </div>
 
@@ -133,22 +163,42 @@ export default function CheckerPage() {
             background: '#f8fafc',
             padding: '30px',
             borderRadius: '15px',
-            marginBottom: '40px'
+            marginBottom: '30px'
           }}>
-            <h2 style={{ 
-              margin: '0 0 20px 0', 
-              color: '#1e293b',
-              fontSize: '1.5rem'
-            }}>
-              Rechercher un contrat
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ margin: '0', color: '#1e293b', fontSize: '1.5rem' }}>
+                Rechercher un contrat
+              </h2>
+              
+              {result && result.status === 'success' && (
+                <button
+                  onClick={refreshData}
+                  disabled={loading}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  🔄 Actualiser les données
+                </button>
+              )}
+            </div>
             
             <form onSubmit={checkReference}>
               <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
                 <div style={{ flex: 1 }}>
                   <input
                     type="text"
-                    placeholder="Exemple : TW238, DEV001, MKT001..."
+                    placeholder="Exemple : 28LM23, TW238, DEV001..."
                     value={reference}
                     onChange={(e) => setReference(e.target.value.toUpperCase())}
                     style={{
@@ -164,11 +214,7 @@ export default function CheckerPage() {
                     disabled={loading}
                   />
                   {error && !result && (
-                    <div style={{
-                      color: '#ef4444',
-                      marginTop: '10px',
-                      fontSize: '0.95rem'
-                    }}>
+                    <div style={{ color: '#ef4444', marginTop: '10px', fontSize: '0.95rem' }}>
                       ⚠️ {error}
                     </div>
                   )}
@@ -199,30 +245,55 @@ export default function CheckerPage() {
                       Vérification...
                     </>
                   ) : (
-                    <>
-                      🔍 Vérifier
-                    </>
+                    <>🔍 Vérifier</>
                   )}
                 </button>
               </div>
               
-              <div style={{ 
-                marginTop: '20px', 
-                fontSize: '0.95rem',
-                color: '#64748b'
-              }}>
+              <div style={{ marginTop: '15px', fontSize: '0.9rem', color: '#64748b' }}>
                 <p style={{ margin: '0' }}>
-                  <strong>Astuce :</strong> La référence vous a été fournie par email ou dans votre contrat.
+                  <strong>💡 Conseil :</strong> Les modifications dans l'admin sont visibles immédiatement ici.
                 </p>
               </div>
             </form>
+            
+            {/* Quick Reference Buttons */}
+            <div style={{ marginTop: '25px' }}>
+              <div style={{ fontSize: '0.95rem', color: '#64748b', marginBottom: '10px' }}>
+                Références de test :
+              </div>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {exampleReferences.map((example, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setReference(example.ref);
+                      setTimeout(() => checkReference(), 100);
+                    }}
+                    style={{
+                      padding: '10px 15px',
+                      background: '#e2e8f0',
+                      color: '#475569',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = '#cbd5e1'}
+                    onMouseOut={(e) => e.currentTarget.style.background = '#e2e8f0'}
+                  >
+                    {example.ref}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Results Section */}
           {result && result.status === 'success' && (
-            <div style={{
-              animation: 'fadeIn 0.5s ease-out'
-            }}>
+            <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
               <div style={{
                 background: '#f0fdf4',
                 border: '2px solid #10b981',
@@ -230,79 +301,44 @@ export default function CheckerPage() {
                 padding: '35px',
                 marginBottom: '30px'
               }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '15px',
-                  marginBottom: '25px'
-                }}>
-                  <div style={{
-                    background: '#10b981',
-                    color: 'white',
-                    width: '60px',
-                    height: '60px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.8rem',
-                    fontWeight: 'bold'
-                  }}>
-                    ✓
-                  </div>
-                  <div>
-                    <h2 style={{ 
-                      margin: '0', 
-                      color: '#065f46',
-                      fontSize: '1.8rem'
-                    }}>
-                      Contrat Trouvé !
-                    </h2>
-                    <p style={{ 
-                      margin: '5px 0 0 0', 
-                      color: '#047857',
-                      fontSize: '1.1rem'
-                    }}>
-                      Voici les détails de votre contrat
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Status Badge */}
+                {/* Status Header */}
                 {(() => {
                   const statusInfo = translateStatus(result.data.status);
                   return (
                     <div style={{
                       background: statusInfo.bgColor,
                       border: `2px solid ${statusInfo.color}`,
-                      borderRadius: '10px',
-                      padding: '20px',
-                      marginBottom: '25px'
+                      borderRadius: '12px',
+                      padding: '25px',
+                      marginBottom: '30px',
+                      textAlign: 'center'
                     }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '10px',
+                      <div style={{ fontSize: '3rem', marginBottom: '15px' }}>
+                        {statusInfo.text.split(' ')[0]}
+                      </div>
+                      <div style={{
+                        fontSize: '1.8rem',
+                        fontWeight: '700',
+                        color: statusInfo.color,
                         marginBottom: '10px'
                       }}>
-                        <span style={{ fontSize: '1.5rem' }}>
-                          {statusInfo.text.split(' ')[0]}
-                        </span>
-                        <span style={{
-                          fontSize: '1.3rem',
-                          fontWeight: '700',
-                          color: statusInfo.color
-                        }}>
-                          {statusInfo.text.substring(statusInfo.text.indexOf(' ') + 1)}
-                        </span>
+                        {statusInfo.text.substring(statusInfo.text.indexOf(' ') + 1)}
                       </div>
-                      <p style={{ 
-                        margin: '0', 
-                        color: '#475569',
-                        fontSize: '1rem'
-                      }}>
+                      <div style={{ color: '#475569', fontSize: '1.1rem' }}>
                         {statusInfo.description}
-                      </p>
+                      </div>
+                      
+                      {/* Timestamp */}
+                      <div style={{
+                        marginTop: '20px',
+                        padding: '10px',
+                        background: 'rgba(255, 255, 255, 0.7)',
+                        borderRadius: '8px',
+                        fontSize: '0.9rem',
+                        color: '#64748b'
+                      }}>
+                        ⏱️ Dernière vérification : {new Date().toLocaleTimeString('fr-FR')}
+                      </div>
                     </div>
                   );
                 })()}
@@ -314,144 +350,43 @@ export default function CheckerPage() {
                   gap: '20px',
                   marginBottom: '30px'
                 }}>
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div style={{ 
-                      color: '#64748b', 
-                      fontSize: '0.95rem',
-                      marginBottom: '5px'
-                    }}>
-                      📋 Référence
-                    </div>
-                    <div style={{ 
-                      fontSize: '1.3rem', 
-                      fontWeight: '700',
-                      color: '#1e293b'
-                    }}>
-                      {result.data.reference}
-                    </div>
-                  </div>
-                  
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div style={{ 
-                      color: '#64748b', 
-                      fontSize: '0.95rem',
-                      marginBottom: '5px'
-                    }}>
-                      👤 Titre du poste
-                    </div>
-                    <div style={{ 
-                      fontSize: '1.3rem', 
-                      fontWeight: '700',
-                      color: '#1e293b'
-                    }}>
-                      {result.data.title || 'Non spécifié'}
-                    </div>
-                  </div>
-                  
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div style={{ 
-                      color: '#64748b', 
-                      fontSize: '0.95rem',
-                      marginBottom: '5px'
-                    }}>
-                      🏢 Entreprise
-                    </div>
-                    <div style={{ 
-                      fontSize: '1.3rem', 
-                      fontWeight: '700',
-                      color: '#1e293b'
-                    }}>
-                      {result.data.company || 'Non spécifiée'}
-                    </div>
-                  </div>
-                  
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    border: '1px solid #e2e8f0'
-                  }}>
-                    <div style={{ 
-                      color: '#64748b', 
-                      fontSize: '0.95rem',
-                      marginBottom: '5px'
-                    }}>
-                      📍 Localisation
-                    </div>
-                    <div style={{ 
-                      fontSize: '1.3rem', 
-                      fontWeight: '700',
-                      color: '#1e293b'
-                    }}>
-                      {result.data.location || 'Non spécifiée'}
-                    </div>
-                  </div>
-                  
+                  <DetailCard 
+                    icon="📋" 
+                    label="Référence" 
+                    value={result.data.reference}
+                  />
+                  <DetailCard 
+                    icon="👤" 
+                    label="Titre" 
+                    value={result.data.title || 'Non spécifié'}
+                  />
+                  <DetailCard 
+                    icon="🏢" 
+                    label="Entreprise" 
+                    value={result.data.company || 'Non spécifiée'}
+                  />
+                  <DetailCard 
+                    icon="📍" 
+                    label="Localisation" 
+                    value={result.data.location || 'Non spécifiée'}
+                  />
                   {result.data.salary && (
-                    <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ 
-                        color: '#64748b', 
-                        fontSize: '0.95rem',
-                        marginBottom: '5px'
-                      }}>
-                        💰 Salaire
-                      </div>
-                      <div style={{ 
-                        fontSize: '1.3rem', 
-                        fontWeight: '700',
-                        color: '#1e293b'
-                      }}>
-                        {result.data.salary}
-                      </div>
-                    </div>
+                    <DetailCard 
+                      icon="💰" 
+                      label="Salaire" 
+                      value={result.data.salary}
+                    />
                   )}
-                  
                   {result.data.created_at && (
-                    <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      <div style={{ 
-                        color: '#64748b', 
-                        fontSize: '0.95rem',
-                        marginBottom: '5px'
-                      }}>
-                        📅 Date de création
-                      </div>
-                      <div style={{ 
-                        fontSize: '1.1rem', 
-                        fontWeight: '600',
-                        color: '#1e293b'
-                      }}>
-                        {new Date(result.data.created_at).toLocaleDateString('fr-FR', {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric'
-                        })}
-                      </div>
-                    </div>
+                    <DetailCard 
+                      icon="📅" 
+                      label="Créé le" 
+                      value={new Date(result.data.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    />
                   )}
                 </div>
                 
@@ -462,6 +397,26 @@ export default function CheckerPage() {
                   justifyContent: 'center',
                   flexWrap: 'wrap'
                 }}>
+                  <button
+                    onClick={refreshData}
+                    style={{
+                      padding: '15px 30px',
+                      background: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    🔄 Actualiser les données
+                  </button>
+                  
                   <button
                     onClick={resetSearch}
                     style={{
@@ -479,95 +434,14 @@ export default function CheckerPage() {
                       transition: 'background 0.2s'
                     }}
                   >
-                    🔄 Nouvelle recherche
+                    🔍 Nouvelle recherche
                   </button>
-                  
-                  <a
-                    href={`/api/check/${result.data.reference}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      padding: '15px 30px',
-                      background: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '10px',
-                      fontSize: '1rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      textDecoration: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '10px',
-                      transition: 'background 0.2s'
-                    }}
-                  >
-                    📄 Voir les données brutes
-                  </a>
-                </div>
-              </div>
-              
-              {/* Help Section */}
-              <div style={{
-                background: '#f8fafc',
-                borderRadius: '15px',
-                padding: '25px',
-                border: '1px solid #e2e8f0'
-              }}>
-                <h3 style={{ 
-                  margin: '0 0 15px 0', 
-                  color: '#1e293b',
-                  fontSize: '1.2rem'
-                }}>
-                  📋 Que faire ensuite ?
-                </h3>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '15px'
-                }}>
-                  <div style={{ padding: '10px' }}>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      color: '#475569',
-                      marginBottom: '5px'
-                    }}>
-                      Si "En attente"
-                    </div>
-                    <div style={{ fontSize: '0.95rem', color: '#64748b' }}>
-                      Votre contrat est en cours de validation par notre équipe.
-                    </div>
-                  </div>
-                  <div style={{ padding: '10px' }}>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      color: '#475569',
-                      marginBottom: '5px'
-                    }}>
-                      Si "Contrat validé"
-                    </div>
-                    <div style={{ fontSize: '0.95rem', color: '#64748b' }}>
-                      Votre contrat est actif. Consultez vos emails pour les prochaines étapes.
-                    </div>
-                  </div>
-                  <div style={{ padding: '10px' }}>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      color: '#475569',
-                      marginBottom: '5px'
-                    }}>
-                      Besoin d'aide ?
-                    </div>
-                    <div style={{ fontSize: '0.95rem', color: '#64748b' }}>
-                      Contactez-nous à support@emploseek.com
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* No Results Message (error) */}
+          {/* Error Message */}
           {error && result?.status === 'error' && (
             <div style={{
               background: '#fef2f2',
@@ -577,120 +451,30 @@ export default function CheckerPage() {
               textAlign: 'center',
               animation: 'fadeIn 0.5s ease-out'
             }}>
-              <div style={{ 
-                fontSize: '3rem', 
-                marginBottom: '20px',
-                color: '#ef4444'
-              }}>
+              <div style={{ fontSize: '3rem', marginBottom: '20px', color: '#ef4444' }}>
                 ❌
               </div>
-              <h2 style={{ 
-                margin: '0 0 10px 0', 
-                color: '#dc2626'
-              }}>
+              <h2 style={{ margin: '0 0 10px 0', color: '#dc2626' }}>
                 Contrat Non Trouvé
               </h2>
-              <p style={{ 
-                margin: '0 0 25px 0', 
-                color: '#991b1b',
-                fontSize: '1.1rem'
-              }}>
+              <p style={{ margin: '0 0 25px 0', color: '#991b1b', fontSize: '1.1rem' }}>
                 {error}
               </p>
-              <div style={{
-                display: 'flex',
-                gap: '15px',
-                justifyContent: 'center',
-                flexWrap: 'wrap'
-              }}>
-                <button
-                  onClick={resetSearch}
-                  style={{
-                    padding: '15px 30px',
-                    background: '#ef4444',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Réessayer avec une autre référence
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Examples Section */}
-          {!result && !loading && (
-            <div style={{
-              marginTop: '40px',
-              padding: '25px',
-              background: '#f8fafc',
-              borderRadius: '15px',
-              border: '1px solid #e2e8f0'
-            }}>
-              <h3 style={{ 
-                margin: '0 0 20px 0', 
-                color: '#1e293b',
-                fontSize: '1.2rem'
-              }}>
-                📝 Exemples de références (test)
-              </h3>
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '15px'
-              }}>
-                {[
-                  { ref: 'TW238', desc: 'Agent traveler - Active' },
-                  { ref: 'DEV001', desc: 'Développeur - Publiée' },
-                  { ref: 'TEST001', desc: 'Offre de test - En attente' },
-                  { ref: 'MKT001', desc: 'Marketing - Validée' }
-                ].map((example, idx) => (
-                  <div 
-                    key={idx}
-                    onClick={() => {
-                      setReference(example.ref);
-                      setTimeout(() => {
-                        document.querySelector('button[type="submit"]').click();
-                      }, 100);
-                    }}
-                    style={{
-                      background: 'white',
-                      padding: '15px',
-                      borderRadius: '10px',
-                      border: '1px solid #e2e8f0',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#f1f5f9';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    <div style={{ 
-                      fontWeight: '700', 
-                      color: '#4f46e5',
-                      marginBottom: '5px',
-                      fontSize: '1.1rem'
-                    }}>
-                      {example.ref}
-                    </div>
-                    <div style={{ 
-                      fontSize: '0.9rem', 
-                      color: '#64748b'
-                    }}>
-                      {example.desc}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={resetSearch}
+                style={{
+                  padding: '15px 30px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                Réessayer avec une autre référence
+              </button>
             </div>
           )}
         </div>
@@ -702,23 +486,16 @@ export default function CheckerPage() {
           color: 'white',
           textAlign: 'center'
         }}>
-          <div style={{ 
-            fontSize: '0.9rem',
-            opacity: '0.8'
-          }}>
-            © {new Date().getFullYear()} Emploseek - Vérificateur de contrats
+          <div style={{ fontSize: '0.9rem', opacity: '0.8' }}>
+            © {new Date().getFullYear()} Emploseek • Données en temps réel
           </div>
-          <div style={{ 
-            marginTop: '10px',
-            fontSize: '0.8rem',
-            opacity: '0.6'
-          }}>
-            Service sécurisé • Données en temps réel • Support 24/7
+          <div style={{ marginTop: '10px', fontSize: '0.8rem', opacity: '0.6' }}>
+            Mise à jour instantanée • Pas de cache • Support technique
           </div>
         </div>
       </div>
 
-      {/* Add CSS animations */}
+      {/* Component pour les cartes de détails */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(10px); }
@@ -729,6 +506,25 @@ export default function CheckerPage() {
           to { transform: rotate(360deg); }
         }
       `}</style>
+    </div>
+  );
+}
+
+// Composant pour les cartes de détails
+function DetailCard({ icon, label, value }) {
+  return (
+    <div style={{
+      background: 'white',
+      padding: '20px',
+      borderRadius: '10px',
+      border: '1px solid #e2e8f0'
+    }}>
+      <div style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: '5px' }}>
+        {icon} {label}
+      </div>
+      <div style={{ fontSize: '1.3rem', fontWeight: '700', color: '#1e293b' }}>
+        {value}
+      </div>
     </div>
   );
 }
